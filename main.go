@@ -31,21 +31,32 @@ import (
 // 	})
 // }
 
-func MiddleWarePRO(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	fmt.Println("yesss")
+func MiddleWareLog(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	fmt.Println("log")
 
-	w.Write([]byte("error"))
 	next(w, r)
-	// // next.ServeHTTP(w, r)
+}
+
+func MiddleWareAuth(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	fmt.Println("auth")
+
+	next(w, r)
 }
 
 type MiddleWareFn func(http.ResponseWriter, *http.Request, http.HandlerFunc)
 
 func MiddleWareChainV2(finalHandler http.HandlerFunc, middlewareFns ...MiddleWareFn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		handler := finalHandler
+
 		for i := len(middlewareFns) - 1; i >= 0; i-- {
-			middlewareFns[i](w, r, finalHandler)
+			currentHandler := handler // Čuvamo trenutni handler
+			handler = func(w http.ResponseWriter, r *http.Request) {
+				middlewareFns[i](w, r, currentHandler) // Pozivamo trenutni middleware
+			}
 		}
+
+		handler(w, r) // Na kraju pozivamo finalHandler
 	}
 }
 
@@ -63,11 +74,13 @@ func main() {
 
 	r := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("yessss is it top23s")
+
+		fmt.Println("zasto se ovo izvrsi????")
 	}
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/more", MiddleWareChainV2(r, MiddleWarePRO))
+	mux.Handle("/more", MiddleWareChainV2(r, MiddleWareAuth, MiddleWareLog))
 
 	if err := http.ListenAndServe(":5000", mux); err != nil {
 		log.Println(err)
